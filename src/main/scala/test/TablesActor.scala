@@ -14,6 +14,7 @@ case class TableRoom(id: Int, name: String, participants: Int)
 case class List(tables: Seq[TableRoom])
 case class TableId(id: Int)
 
+
 class TablesActor extends Actor{
 
   private var tables = ArrayBuffer[Table]()
