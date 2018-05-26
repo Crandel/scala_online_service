@@ -51,6 +51,8 @@ object Chat {
                 val user @ (name, userObj, role) = users.find(_._1 == l.username).get
                 sender ! Protocol.LoginSuccessful(role.roleType)
             }
+            case lf: Protocol.LoginFailed => sender ! lf
+            case ls: Protocol.LoginSuccessful => sender ! ls
           }
 
         }
