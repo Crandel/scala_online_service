@@ -50,7 +50,7 @@ object Chat {
             case l:Protocol.Login => {
               try {
                 val user @ (name, userObj, role) = users.find(_._1 == l.username).get
-                sender ! Protocol.LoginSuccessful(user)
+                sender ! Protocol.LoginSuccessful(role.roleType)
               } catch (e) {
                 sender ! Protocol.LoginFailed
               }
