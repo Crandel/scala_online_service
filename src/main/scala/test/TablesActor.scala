@@ -3,6 +3,8 @@ package test
 import scala.collection.mutable.ArrayBuffer
 
 import akka.actor.Actor
+import io.circe.{ Decoder, Encoder }
+import io.circe.generic.semiauto.{ deriveDecoder, deriveEncoder }
 
 case class Create(begin: Boolean, table: Table)
 case class Update(id: Int, table: Table)
@@ -11,17 +13,21 @@ case class Removed(status: Boolean)
 case class Updated(status: Boolean)
 case class GetList()
 case class TableRoom(id: Int, name: String, participants: Int)
+object TableRoom {
+  implicit val tableRoomDecoder: Decoder[TableRoom] = deriveDecoder
+  implicit val tableRoomEncoder: Encoder[TableRoom] = deriveEncoder
+}
+
 case class List(tables: Seq[TableRoom])
 case class TableId(id: Int)
 
-
-class TablesActor extends Actor{
+class TablesActor extends Actor {
 
   private var tables = ArrayBuffer[Table]()
 
   override def receive: Receive = {
     case Create(begin, table) => {
-      if (begin){
+      if (begin) {
         tables += table
       } else {
         tables.insert(0, table)
@@ -31,7 +37,7 @@ class TablesActor extends Actor{
     }
     case Update(id, table) => {
       var status = false
-      if (tables.length < id){
+      if (tables.length < id) {
         tables.insert(id, table)
         status = true
       }
@@ -39,14 +45,14 @@ class TablesActor extends Actor{
     }
     case Remove(id) => {
       var status = false
-      if (tables.length < id){
+      if (tables.length < id) {
         tables.remove(id)
         status = true
       }
       sender ! Removed(status)
     }
     case GetList => {
-      val tableList: Seq[TableRoom] = for ((table, i)<- tables.zipWithIndex) yield TableRoom(i, table.name, table.participants.length)
+      val tableList: Seq[TableRoom] = for ((table, i) <- tables.zipWithIndex) yield TableRoom(i, table.name, table.participants.length)
       sender ! List(tableList)
     }
   }

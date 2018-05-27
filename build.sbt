@@ -6,7 +6,7 @@ lazy val root = (project in file(".")).
   settings(
     inThisBuild(List(
       organization    := "test",
-      scalaVersion    := "2.12.5"
+      scalaVersion    := "2.12.4"
     )),
     name := "Test Akka Websocket",
     libraryDependencies ++= Seq(
@@ -17,6 +17,7 @@ lazy val root = (project in file(".")).
     libraryDependencies ++= Seq(
       "io.circe" %% "circe-core",
       "io.circe" %% "circe-generic",
+      "io.circe" %% "circe-generic-extras",
       "io.circe" %% "circe-parser"
     ).map(_ % circeVersion)
   )

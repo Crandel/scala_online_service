@@ -1,27 +1,16 @@
 package test
 
-import java.util.Date
-
 import scala.util.Failure
-import scala.concurrent.duration._
 import akka.actor._
 import akka.event.Logging
 import akka.http.scaladsl.model.ws.{ Message, TextMessage }
-import akka.http.scaladsl.server.directives.Credentials
 import akka.http.scaladsl.server.{ Directives, Route }
 import akka.stream.scaladsl.Flow
 import io.circe._
 import io.circe.syntax._
 import io.circe.generic.semiauto._
 
-case class User(name: String, password: String)
-
-object User {
-  implicit val userEncoder: Encoder[User] = deriveEncoder
-  implicit val userDecoder: Decoder[User] = deriveDecoder
-}
-
-class SenderId private(val underlying: Int) extends AnyVal {
+class SenderId private (val underlying: Int) extends AnyVal {
   override def toString: String = underlying.toString
 }
 
@@ -36,7 +25,6 @@ object SenderId {
   }
 }
 
-
 class WebService(implicit system: ActorSystem) extends Directives {
 
   lazy val log = Logging(system, classOf[WebService])
@@ -47,13 +35,18 @@ class WebService(implicit system: ActorSystem) extends Directives {
 
   lazy val routes: Route =
     get {
-      path("ws_api") {
-        handleWebSocketMessages(websocketChatFlow())
-      }
+      pathSingleSlash {
+        getFromResource("web/index.html")
+      } ~
+        path("ws_api") {
+          handleWebSocketMessages(websocketChatFlow())
+        } ~
+        getFromResourceDirectory("web")
     }
 
-  def websocketChatFlow(): Flow[Message, Message, Any] =
+  def websocketChatFlow(): Flow[Message, Message, Any] = {
     val sender = SenderId().toString
+
     Flow[Message]
       .collect {
         case TextMessage.Strict(msg) ⇒ msg
@@ -64,6 +57,7 @@ class WebService(implicit system: ActorSystem) extends Directives {
           TextMessage.Strict(msg.asJson.noSpaces)
       }
       .via(reportErrorsFlow)
+  }
 
   def reportErrorsFlow[T]: Flow[T, T, Any] =
     Flow[T]

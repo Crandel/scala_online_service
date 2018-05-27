@@ -16,7 +16,8 @@ object ChatServer extends App {
   val interface = config.getString("app.interface")
   val port = config.getInt("app.port")
 
-  // Http().bindAndHandle(routes, interface, port)
+  val service = new WebService()
+  Http().bindAndHandle(service.routes, interface, port)
 
   println(s"Server online at http://$interface:$port/")
 

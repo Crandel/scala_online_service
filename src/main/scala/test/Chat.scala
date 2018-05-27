@@ -1,14 +1,12 @@
 package test
 
+
 import akka.actor._
 import akka.event.Logging
 import akka.stream.OverflowStrategy
 import akka.stream.scaladsl._
-import test.Protocol.Message
 import io.circe._
-import io.circe.generic.auto._
 import io.circe.parser._
-import io.circe.syntax._
 
 trait Chat {
   def chatFlow(sender: String): Flow[String, Protocol.Message, Any]
@@ -40,19 +38,21 @@ object Chat {
         def dispatch(msg: Either[Error, Protocol.Message]): Unit = {
           msg match {
             case Right(message) =>
+              log.info(message.toString)
               subscribers.foreach(_._2 ! message)
-            case Left(e) => log.error(equals().toString)
+            case Left(e) => log.error(e.toString)
           }
         }
 
-        def table_dispatch(msg: Protocol.Message) = {
+        def table_dispatch(msg: Protocol.Message): Unit = {
           msg match {
-            case l:Protocol.Login => {
-                val user @ (name, userObj, role) = users.find(_._1 == l.username).get
-                sender ! Protocol.LoginSuccessful(role.roleType)
+            case l: Protocol.Login => {
+              users.find(_._1 == l.username).get match {
+                case t: (String, User, Role) =>
+                  sender ! Protocol.LoginSuccessful(user_type = t._3.roleType)
+                case _ => sender ! Protocol.LoginFailed
+              }
             }
-            case lf: Protocol.LoginFailed => sender ! lf
-            case ls: Protocol.LoginSuccessful => sender ! ls
           }
 
         }
@@ -67,17 +67,12 @@ object Chat {
             .map(ReceivedMessage(sender, _))
             .to(chatInSink(sender))
 
-        // The counter-part which is a source that will create a target ActorRef per
-        // materialization where the chatActor will send its messages to.
-        // This source will only buffer one element and will fail if the client doesn't read
-        // messages fast enough.
         val out =
-        Source.actorRef[Protocol.Message](1, OverflowStrategy.fail)
-          .mapMaterializedValue(chatActor ! NewParticipant(sender, _))
+          Source.actorRef[Protocol.Message](1, OverflowStrategy.fail)
+            .mapMaterializedValue(chatActor ! NewParticipant(sender, _))
 
         Flow.fromSinkAndSource(in, out)
       }
-      def injectMessage(message: Protocol.Message): Unit = chatActor ! message // non-streams interface
     }
   }
 
