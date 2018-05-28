@@ -1,22 +1,93 @@
 package test
-import io.circe.Decoder.Result
-import io.circe.{Decoder, Encoder, HCursor, Json}
-import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.{ Decoder, Encoder, HCursor, Json }
 
 object Protocol {
   sealed trait Message
+
+  private def wrapTable(table: TableRoom): Json = {
+    Json.fromFields(
+      Seq(
+        ("id", Json.fromInt(table.id)),
+        ("name", Json.fromString(table.name)),
+        ("partisipants", Json.fromInt(table.participants))))
+  }
+
+  private def wrapCreateTable(table: TableRoom): Json = {
+    Json.fromFields(
+      Seq(
+        ("name", Json.fromString(table.name)),
+        ("partisipants", Json.fromInt(table.participants))))
+  }
+
   implicit val encodeMessage: Encoder[Message] = new Encoder[Message] {
     final def apply(a: Message): Json = {
       a match {
         case l: Login => Json.obj(
           ("$type", Json.fromString("login")),
           ("username", Json.fromString(l.username)),
-          ("password", Json.fromString(l.password))
-        )
+          ("password", Json.fromString(l.password)))
+
         case ls: LoginSuccessful => Json.obj(
           ("$type", Json.fromString("login_successful")),
-          ("user_type", Json.fromString(ls.user_type))
-        )
+          ("user_type", Json.fromString(ls.user_type)))
+
+        case lf: LoginFailed => Json.obj(
+          ("$type", Json.fromString("login_failed")))
+
+        case pi: Ping => Json.obj(
+          ("$type", Json.fromString("ping")),
+          ("seq", Json.fromInt(pi.seq)))
+
+        case po: Pong => Json.obj(
+          ("$type", Json.fromString("pong")),
+          ("seq", Json.fromInt(po.seq)))
+
+        case sub: Subscribe => Json.obj(
+          ("$type", Json.fromString("subscribe_tables")))
+
+        case unsub: UnSubscribe => Json.obj(
+          ("$type", Json.fromString("unsubscribe_tables")))
+
+        case nota: NotAuthorized => Json.obj(
+          ("$type", Json.fromString("not_authorized")))
+
+        case tl: TableList => Json.obj(
+          ("$type", Json.fromString("table_list")),
+          ("tables", Json.fromValues(tl.tables.map(table => wrapTable(table)))))
+
+        case at: AddTable => Json.obj(
+          ("$type", Json.fromString("add_table")),
+          ("after_id", Json.fromInt(at.afterId)),
+          ("table", wrapCreateTable(at.table)))
+
+        case ut: UpdateTable => Json.obj(
+          ("$type", Json.fromString("update_table")),
+          ("table", wrapTable(ut.table)))
+
+        case uf: UpdateFailed => Json.obj(
+          ("$type", Json.fromString("update_failed")),
+          ("id", Json.fromInt(uf.id)))
+
+        case rt: RemoveTable => Json.obj(
+          ("$type", Json.fromString("remove_table")),
+          ("id", Json.fromInt(rt.id)))
+
+        case rf: RemoveFailed => Json.obj(
+          ("$type", Json.fromString("removal_failed")),
+          ("id", Json.fromInt(rf.id)))
+
+        case ta: TableAdded => Json.obj(
+          ("$type", Json.fromString("table_added")),
+          ("after_id", Json.fromInt(ta.afterId)),
+          ("table", wrapTable(ta.table)))
+
+        case tu: TableUpdated => Json.obj(
+          ("$type", Json.fromString("table_updated")),
+          ("table", wrapTable(tu.table)))
+
+        case tr: TableRemoved => Json.obj(
+          ("$type", Json.fromString("table_removed")),
+          ("id", Json.fromInt(tr.id)))
       }
     }
   }
@@ -30,14 +101,65 @@ object Protocol {
           case "login" => for {
             username <- c.downField("username").as[String]
             password <- c.downField("password").as[String]
-          } yield {
-            Login(username, password)
-          }
+          } yield Login(username, password)
+
           case "login_successful" => for {
             user_type <- c.downField("user_type").as[String]
-          } yield {
-            LoginSuccessful(user_type)
-          }
+          } yield LoginSuccessful(user_type)
+
+          case "login_failed" => Right(LoginFailed())
+
+          case "ping" => for {
+            seq <- c.downField("seq").as[Int]
+          } yield Ping(seq)
+
+          case "pong" => for {
+            seq <- c.downField("seq").as[Int]
+          } yield Pong(seq)
+
+          case "subscribe_tables" => Right(Subscribe())
+
+          case "subscribe_tables" => Right(UnSubscribe())
+
+          case "not_authorized" => Right(NotAuthorized())
+
+          case "table_list" => for {
+            tables <- c.downField("tables").as[Seq[TableRoom]]
+          } yield TableList(tables)
+
+          case "add_table" => for {
+            after_id <- c.downField("after_id").as[Int]
+            table <- c.downField("table").as[TableRoom]
+          } yield AddTable(after_id, table)
+
+          case "update_table" => for {
+            table <- c.downField("table").as[TableRoom]
+          } yield UpdateTable(table)
+
+          case "update_failed" => for {
+            id <- c.downField("id").as[Int]
+          } yield UpdateFailed(id)
+
+          case "remove_table" => for {
+            id <- c.downField("id").as[Int]
+          } yield RemoveTable(id)
+
+          case "removal_failed" => for {
+            id <- c.downField("id").as[Int]
+          } yield RemoveFailed(id)
+
+          case "table_added" => for {
+            after_id <- c.downField("after_id").as[Int]
+            table <- c.downField("table").as[TableRoom]
+          } yield TableAdded(after_id, table)
+
+          case "table_updated" => for {
+            table <- c.downField("table").as[TableRoom]
+          } yield TableUpdated(table)
+
+          case "table_removed" => for {
+            id <- c.downField("id").as[Int]
+          } yield TableRemoved(id)
         }
         result match {
           case Right(msg) => msg
@@ -47,70 +169,20 @@ object Protocol {
   }
 
   case class Login(username: String, password: String) extends Message
-  implicit val loginEncoder: Encoder[Login] = deriveEncoder
-  implicit val loginDecoder: Decoder[Login] = deriveDecoder
-
   case class LoginSuccessful(user_type: String) extends Message
-  implicit val loginSuccessDecoder: Decoder[LoginSuccessful] = deriveDecoder
-  implicit val loginSuccessEncoder: Encoder[LoginSuccessful] = deriveEncoder
-
   case class LoginFailed() extends Message
-  implicit val loginFailDecoder: Decoder[LoginFailed] = deriveDecoder
-  implicit val loginFailEncoder: Encoder[LoginFailed] = deriveEncoder
-
   case class Ping(seq: Int) extends Message
-  implicit val pingDecoder: Decoder[Ping] = deriveDecoder
-  implicit val pingEncoder: Encoder[Ping] = deriveEncoder
-
   case class Pong(seq: Int) extends Message
-  implicit val pongDecoder: Decoder[Pong] = deriveDecoder
-  implicit val pongEncoder: Encoder[Pong] = deriveEncoder
-
   case class Subscribe() extends Message
-  implicit val subscribeDecoder: Decoder[Subscribe] = deriveDecoder
-  implicit val subscribeEncoder: Encoder[Subscribe] = deriveEncoder
-
   case class UnSubscribe() extends Message
-  implicit val unsubscribeDecoder: Decoder[UnSubscribe] = deriveDecoder
-  implicit val unsubscribeEncoder: Encoder[UnSubscribe] = deriveEncoder
-
   case class TableList(tables: Seq[TableRoom]) extends Message
-  implicit val tableListDecoder: Decoder[TableList] = deriveDecoder
-  implicit val tableListEncoder: Encoder[TableList] = deriveEncoder
-
   case class NotAuthorized() extends Message
-  implicit val notAuthDecoder: Decoder[NotAuthorized] = deriveDecoder
-  implicit val notAuthEncoder: Encoder[NotAuthorized] = deriveEncoder
-
-  case class AddTable(afterId: Int, table: Seq[TableRoom]) extends Message
-  implicit val addTableDecoder: Decoder[AddTable] = deriveDecoder
-  implicit val addTableEncoder: Encoder[AddTable] = deriveEncoder
-
-  case class UpdateTable(table: Seq[TableRoom]) extends Message
-  implicit val updateTableDecoder: Decoder[UpdateTable] = deriveDecoder
-  implicit val updateTableEncoder: Encoder[UpdateTable] = deriveEncoder
-
+  case class AddTable(afterId: Int, table: TableRoom) extends Message
+  case class UpdateTable(table: TableRoom) extends Message
   case class UpdateFailed(id: Int) extends Message
-  implicit val updateFailedDecoder: Decoder[UpdateFailed] = deriveDecoder
-  implicit val updateFailedEncoder: Encoder[UpdateFailed] = deriveEncoder
-
   case class RemoveTable(id: Int) extends Message
-  implicit val removeTableDecoder: Decoder[RemoveTable] = deriveDecoder
-  implicit val removeTableEncoder: Encoder[RemoveTable] = deriveEncoder
-
   case class RemoveFailed(id: Int) extends Message
-  implicit val removeFailDecoder: Decoder[RemoveFailed] = deriveDecoder
-  implicit val removeFailEncoder: Encoder[RemoveFailed] = deriveEncoder
-
-  case class TableAdded(afterId: Int, table: Seq[TableRoom]) extends Message
-  implicit val tableAddedDecoder: Decoder[TableAdded] = deriveDecoder
-  implicit val tableAddedEncoder: Encoder[TableAdded] = deriveEncoder
-
+  case class TableAdded(afterId: Int, table: TableRoom) extends Message
   case class TableRemoved(id: Int) extends Message
-  implicit val tableRemovedDecoder: Decoder[TableRemoved] = deriveDecoder
-  implicit val tableRemovedEncoder: Encoder[TableRemoved] = deriveEncoder
-
-  case class TableUpdated(table: Seq[TableRoom]) extends Message
-  implicit val tableUpdatedDecoder: Decoder[TableUpdated] = deriveDecoder
-  implicit val tableUpdatedEncoder: Encoder[TableUpdated] = deriveEncoder
+  case class TableUpdated(table: TableRoom) extends Message
 }
