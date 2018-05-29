@@ -12,7 +12,7 @@ object Protocol {
         ("partisipants", Json.fromInt(table.participants))))
   }
 
-  private def wrapCreateTable(table: TableRoom): Json = {
+  private def wrapCreateTable(table: CreateTableRoom): Json = {
     Json.fromFields(
       Seq(
         ("name", Json.fromString(table.name)),
@@ -129,7 +129,7 @@ object Protocol {
 
           case "add_table" => for {
             after_id <- c.downField("after_id").as[Int]
-            table <- c.downField("table").as[TableRoom]
+            table <- c.downField("table").as[CreateTableRoom]
           } yield AddTable(after_id, table)
 
           case "update_table" => for {
@@ -177,7 +177,7 @@ object Protocol {
   case class UnSubscribe() extends Message
   case class TableList(tables: Seq[TableRoom]) extends Message
   case class NotAuthorized() extends Message
-  case class AddTable(afterId: Int, table: TableRoom) extends Message
+  case class AddTable(afterId: Int, table: CreateTableRoom) extends Message
   case class UpdateTable(table: TableRoom) extends Message
   case class UpdateFailed(id: Int) extends Message
   case class RemoveTable(id: Int) extends Message

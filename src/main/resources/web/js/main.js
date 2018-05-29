@@ -15,6 +15,7 @@ $(document).ready(function(){
         options = { hour12: false },
         htmlText = '[' + date.toLocaleTimeString('en-US', options) + '] ';
 
+    console.log(message);
     try{
       var messageObj = JSON.parse(message);
       console.log(messageObj);
