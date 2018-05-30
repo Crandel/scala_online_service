@@ -38,8 +38,6 @@ class ChatActor(tablesActor: ActorRef) extends Actor {
   def dispatch(msg: Protocol.Message, subscriber: String): Unit = {
     val subTuple = subscribers(subscriber)
     val subActor = subTuple._1
-    println("subTuple")
-    println(subTuple)
     val isAdmin: Boolean = subTuple._2 match {
       case Some(user) => {
         if (user.role == Role("admin")) {
