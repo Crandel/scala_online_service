@@ -26,14 +26,10 @@ case class TableId(id: Int)
 
 class TablesActor extends Actor {
 
-  private val tables = ArrayBuffer[TableRoom]()
+  private val tables = ArrayBuffer[CreateTableRoom]()
 
   override def receive: Receive = {
     case Create(after_id, table) => {
-      println("create tables")
-      println(tables)
-      println(after_id, table)
-
       var ind = 0
       if (after_id > 0 && after_id < tables.length) {
         ind = after_id
@@ -42,30 +38,23 @@ class TablesActor extends Actor {
       } else {
         ind = tables.length
       }
-      val tableRoom = TableRoom(ind, table.name, table.participants)
+      val tableRoom = CreateTableRoom(table.name, table.participants)
       tables.insert(ind, tableRoom)
       sender ! TableId(ind)
     }
 
     case Update(table) => {
-      println("update tables")
-      println(tables)
-      println(table)
-
       var status = false
-      if (tables.length < table.id) {
-        tables.insert(table.id, table)
+      if (tables.length > table.id) {
+        tables.insert(table.id, CreateTableRoom(table.name, table.participants))
         status = true
       }
       sender ! Updated(status)
     }
 
     case Remove(id) => {
-      println("remove tables")
-      println(tables)
-      println(id)
       var status = false
-      if (tables.length < id) {
+      if (tables.length > id) {
         tables.remove(id)
         status = true
       }
@@ -73,7 +62,8 @@ class TablesActor extends Actor {
     }
 
     case GetList(subscriber) => {
-      subscriber ! Protocol.TableList(tables)
+      val tableRoomSeq: ArrayBuffer[(CreateTableRoom, Int)] = tables.zipWithIndex
+      subscriber ! Protocol.TableList(tableRoomSeq.map(t => TableRoom(t._2, t._1.name, t._1.participants)))
     }
   }
 }

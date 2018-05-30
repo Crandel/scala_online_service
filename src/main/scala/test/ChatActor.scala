@@ -106,7 +106,7 @@ class ChatActor(tablesActor: ActorRef) extends Actor {
         if (isAdmin) {
           val remove = tablesActor ? Remove(rt.id)
           Try(Await.result(remove, 10.seconds)) match {
-            case Success(st: Updated) => {
+            case Success(st: Removed) => {
               if (st.status) {
                 tableSubscribers.foreach(_ ! Protocol.TableRemoved(rt.id))
               } else {
