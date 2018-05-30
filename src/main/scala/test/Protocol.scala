@@ -119,7 +119,7 @@ object Protocol {
 
           case "subscribe_tables" => Right(Subscribe())
 
-          case "subscribe_tables" => Right(UnSubscribe())
+          case "unsubscribe_tables" => Right(UnSubscribe())
 
           case "not_authorized" => Right(NotAuthorized())
 
@@ -160,6 +160,7 @@ object Protocol {
           case "table_removed" => for {
             id <- c.downField("id").as[Int]
           } yield TableRemoved(id)
+          case _ => Left("error")
         }
         result match {
           case Right(msg) => msg

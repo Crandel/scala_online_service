@@ -15,7 +15,7 @@ $(document).ready(function(){
         options = { hour12: false },
         htmlText = '[' + date.toLocaleTimeString('en-US', options) + '] ';
 
-    console.log(message);
+    console.log("message is " + message);
     try{
       var messageObj = JSON.parse(message);
       console.log(messageObj);
@@ -40,6 +40,7 @@ $(document).ready(function(){
   }
 
   function sendMessage(msg){
+    console.log("sendMessage");
     console.log(msg);
     sock.send(msg);
   }
@@ -51,32 +52,105 @@ $(document).ready(function(){
   $('#login').click(function() {
     var login = JSON.stringify({
       "$type": "login",
-      "username": "user1234",
-      "password": "password1234"
+      "username": "admin",
+      "password": "admin"
     });
     console.log("login");
     sendMessage(login);
   });
 
-  $('#table_list').click(function() {
+  $('#login_failed').click(function() {
+    var login = JSON.stringify({
+      "$type": "login",
+      "username": "admin22",
+      "password": "admin22"
+    });
+    console.log("login");
+    sendMessage(login);
+  });
+
+  $('#ping').click(function() {
+    var p = JSON.stringify({
+      "$type": "ping",
+      "seq": 1
+    });
+    console.log("ping");
+    sendMessage(p);
+  });
+
+  $('#pong').click(function() {
+    var p = JSON.stringify({
+      "$type": "pong",
+      "seq": 1
+    });
+    console.log("pong");
+    sendMessage(p);
+  });
+
+  $('#subscribeme').click(function() {
     var tl = JSON.stringify({
-      "$type": "table_list",
-      "tables": [
-        {
-          "id": 1,
-          "name": "table - James Bond",
-          "participants": 7
-        }, {
-          "id": 2,
-          "name": "table - Mission Impossible",
-          "participants": 4
-        }
-      ]
-    }
-                           );
-    console.log("table_list");
+      "$type": "subscribe_tables"
+    });
+    console.log("subscribeme");
     sendMessage(tl);
   });
+
+  $('#unsubscribeme').click(function() {
+    var tl = JSON.stringify({
+      "$type": "unsubscribe_tables"
+    });
+    console.log("unsubscribeme");
+    sendMessage(tl);
+  });
+
+  $('#add_table').click(function() {
+    var tl = JSON.stringify({
+      "$type": "add_table",
+      "after_id": 1,
+      "table": {
+        "name": "table - Foo Fighters",
+        "participants": 4
+      }
+    });
+    console.log("add_table");
+    sendMessage(tl);
+  });
+
+  $('#add_table_start').click(function() {
+    var tl = JSON.stringify({
+      "$type": "add_table",
+      "after_id": -1,
+      "table": {
+        "name": "table - Mission Impossible",
+        "participants": 7
+      }
+    });
+    console.log("add_table_start");
+    sendMessage(tl);
+  });
+
+  $('#update_table').click(function() {
+    var tl = JSON.stringify({
+      "$type": "update_table",
+      "table": {
+        "id": 1,
+        "name": "table - Foo Fighters 2",
+        "participants": 6
+      }
+    });
+    console.log("update_table");
+    sendMessage(tl);
+  });
+
+  $('#remove_table').click(function() {
+    var tl = JSON.stringify({
+      "$type": "remove_table",
+      "id": 1
+    });
+    console.log("remove_table");
+    sendMessage(tl);
+  });
+
 
   // income message handler
   sock.onmessage = function(event) {
@@ -92,6 +166,7 @@ $(document).ready(function(){
   };
 
   sock.onerror = function(error){
+    console.log(error)
     showMessage(error);
   };
 });

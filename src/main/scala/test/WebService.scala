@@ -6,9 +6,7 @@ import akka.event.Logging
 import akka.http.scaladsl.model.ws.{ Message, TextMessage }
 import akka.http.scaladsl.server.{ Directives, Route }
 import akka.stream.scaladsl.Flow
-import io.circe._
 import io.circe.syntax._
-import io.circe.generic.semiauto._
 
 class SenderId private (val underlying: Int) extends AnyVal {
   override def toString: String = underlying.toString
@@ -39,13 +37,18 @@ class WebService(implicit system: ActorSystem) extends Directives {
         getFromResource("web/index.html")
       } ~
         path("ws_api") {
-          handleWebSocketMessages(websocketChatFlow())
+          parameter("name".?) { name =>
+            handleWebSocketMessages(webSocketChatFlow(name))
+          }
         } ~
         getFromResourceDirectory("web")
     }
 
-  def websocketChatFlow(): Flow[Message, Message, Any] = {
-    val sender = SenderId().toString
+  def webSocketChatFlow(name: Option[String]): Flow[Message, Message, Any] = {
+    val sender = name match {
+      case Some(n) => n
+      case None => SenderId().toString
+    }
 
     Flow[Message]
       .collect {

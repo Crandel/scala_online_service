@@ -16,13 +16,13 @@ object Chat {
 
     val chatActor = system.actorOf(Props(new ChatActor(tableActor)))
 
-    def chatInSink(sender: String) = Sink.actorRef[Protocol.Message](chatActor, ParticipantLeft(sender))
+    def chatInSink(sender: String) = Sink.actorRef[ChatEvent](chatActor, ParticipantLeft(sender))
 
     new Chat {
       def chatFlow(sender: String): Flow[String, Protocol.Message, Any] = {
         val in =
           Flow[String]
-            .map(ReceivedMessage(sender, _).toChatMessage)
+            .map(ReceivedMessage(sender, _))
             .to(chatInSink(sender))
 
         val out =

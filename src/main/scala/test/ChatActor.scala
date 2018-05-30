@@ -27,68 +27,97 @@ class ChatActor(tablesActor: ActorRef) extends Actor {
     case NewParticipant(name, subscriber) ⇒
       context.watch(subscriber)
       subscribers += (name -> (subscriber, None))
-    case msg: ReceivedMessage => dispatch(msg.toChatMessage)
+    case msg: ReceivedMessage => dispatch(msg.toChatMessage, msg.name)
     case ParticipantLeft(person) =>
       val entry = subscribers(person)
       entry._1 ! Status.Success(Unit)
       subscribers -= person
-    case Terminated(sub) => subscribers = subscribers.filterNot(_._2 == sub)
+    case Terminated(sub) => subscribers = subscribers.filterNot(_._1 == sub)
   }
 
-  def dispatch(msg: Protocol.Message): Unit = {
+  def dispatch(msg: Protocol.Message, subscriber: String): Unit = {
+    val subTuple = subscribers(subscriber)
+    val subActor = subTuple._1
+    println("subTuple")
+    println(subTuple)
+    val isAdmin: Boolean = subTuple._2 match {
+      case Some(user) => {
+        if (user.role == Role("admin")) {
+          true
+        } else {
+          false
+        }
+      }
+      case _ => false
+    }
     msg match {
       case l: Protocol.Login => {
         try {
           val entry @ user = users.find(u => u.username == l.username && u.password == l.password).get
-          val subscriber @ (name, (ref, usobj)) = subscribers.find(_._2 == sender).get
-          subscribers(name) = (ref, Some(user))
-          sender ! Protocol.LoginSuccessful(user_type = user.role.roleType)
+          subscribers(subscriber) = (subActor, Some(user))
+          subActor ! Protocol.LoginSuccessful(user_type = user.role.roleType)
         } catch {
           case e: NoSuchElementException =>
-            sender ! Protocol.LoginFailed()
+            subActor ! Protocol.LoginFailed()
         }
       }
 
-      case lp: Protocol.Ping => sender ! Protocol.Pong(seq = lp.seq)
+      case lp: Protocol.Ping => subActor ! Protocol.Pong(seq = lp.seq)
 
       case sub: Protocol.Subscribe => {
-        val tables = tablesActor ? GetList(sender)
-        Try(Await.result(tables, 10.seconds)) match {
-          case Success(extractTables: Seq[TableRoom]) => {
-            sender ! Protocol.TableList(tables = extractTables)
-            tableSubscribers += sender
-          }
-          case Failure(_) => println("Failure" + _)
+        tablesActor ! GetList(subActor)
+        tableSubscribers += subActor
+      }
+      case unsub: Protocol.UnSubscribe => {
+        if (tableSubscribers.contains(subActor)) {
+          tableSubscribers -= subActor
         }
       }
-      case unsub: Protocol.UnSubscribe => tableSubscribers -= sender
 
       case at: Protocol.AddTable => {
-        try {
-          val subscriber @ (name, (ref, usobj)) = subscribers.find(_._2 == sender).get
-          usobj match {
-            case Some(user) => {
-              if (user.role == Role("admin")) {
-                var begin = false
-                if (at.afterId == -1) {
-                  begin = true
-                }
-                val created = tablesActor ? Create(begin, at.table)
-                Try(Await.result(created, 10.seconds)) match {
-                  case Success(tableId: TableId) => {
-                    tableSubscribers.foreach(_ ! Protocol.TableAdded(at.afterId, TableRoom(tableId.id, at.table.name, at.table.participants)))
-                  }
-                  case Failure(_) => println("Failure" + _)
-                }
-              } else sender ! Protocol.NotAuthorized()
+        if (isAdmin) {
+          val created = tablesActor ? Create(at.afterId, at.table)
+          Try(Await.result(created, 10.seconds)) match {
+            case Success(tableId: TableId) => {
+              tableSubscribers.foreach(_ ! Protocol.TableAdded(at.afterId, TableRoom(tableId.id, at.table.name, at.table.participants)))
             }
-            case None => sender ! Protocol.NotAuthorized()
+            case Failure(_) => println("Failure" + _)
           }
-        } catch {
-          case e: NoSuchElementException =>
-            sender ! Protocol.NotAuthorized()
-        }
+        } else subActor ! Protocol.NotAuthorized()
       }
+
+      case ut: Protocol.UpdateTable => {
+        if (isAdmin) {
+          val update = tablesActor ? Update(ut.table)
+          Try(Await.result(update, 10.seconds)) match {
+            case Success(st: Updated) => {
+              if (st.status) {
+                tableSubscribers.foreach(_ ! Protocol.TableUpdated(ut.table))
+              } else {
+                subActor ! Protocol.UpdateFailed(ut.table.id)
+              }
+            }
+            case Failure(_) => println("Failure" + _)
+          }
+        } else subActor ! Protocol.NotAuthorized()
+      }
+
+      case rt: Protocol.RemoveTable => {
+        if (isAdmin) {
+          val remove = tablesActor ? Remove(rt.id)
+          Try(Await.result(remove, 10.seconds)) match {
+            case Success(st: Updated) => {
+              if (st.status) {
+                tableSubscribers.foreach(_ ! Protocol.TableRemoved(rt.id))
+              } else {
+                subActor ! Protocol.RemoveFailed(rt.id)
+              }
+            }
+            case Failure(_) => println("Failure" + _)
+          }
+        } else subActor ! Protocol.NotAuthorized()
+      }
+      case _ =>
     }
   }
 }
@@ -96,7 +125,7 @@ class ChatActor(tablesActor: ActorRef) extends Actor {
 sealed trait ChatEvent
 case class NewParticipant(name: String, subscriber: ActorRef) extends ChatEvent
 case class ParticipantLeft(name: String) extends ChatEvent
-case class ReceivedMessage(sender: String, message: String) extends ChatEvent {
+case class ReceivedMessage(name: String, message: String) extends ChatEvent {
   def toChatMessage: Protocol.Message = {
     decode[Protocol.Message](message) match {
       case Right(msg) => msg
