@@ -1,4 +1,4 @@
-package test
+package chat
 
 import scala.collection.mutable.ArrayBuffer
 import akka.actor.{ Actor, ActorRef }
@@ -11,18 +11,19 @@ case class Remove(id: Int)
 case class Removed(status: Boolean)
 case class Updated(status: Boolean)
 case class GetList(subscriber: ActorRef)
+case class TableId(id: Int)
+
 case class CreateTableRoom(name: String, participants: Int)
 object CreateTableRoom {
   implicit val createTableRoomDecoder: Decoder[CreateTableRoom] = deriveDecoder
   implicit val createTableRoomEncoder: Encoder[CreateTableRoom] = deriveEncoder
 }
+
 case class TableRoom(id: Int, name: String, participants: Int)
 object TableRoom {
   implicit val tableRoomDecoder: Decoder[TableRoom] = deriveDecoder
   implicit val tableRoomEncoder: Encoder[TableRoom] = deriveEncoder
 }
-
-case class TableId(id: Int)
 
 class TablesActor extends Actor {
 

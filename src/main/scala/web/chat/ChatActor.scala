@@ -1,4 +1,4 @@
-package test
+package chat
 
 import akka.actor.{ Actor, ActorRef, Status, Terminated }
 import io.circe.parser._
@@ -19,25 +19,35 @@ class ChatActor(tablesActor: ActorRef) extends Actor {
   private var users = Set(
     User("admin", "admin", Role("admin")),
     User("test", "test", Role("test")))
+
+  // all subscribers of our chat
   private var subscribers = mutable.Map[String, (ActorRef, Option[User])]()
+
+  // subscribers, who will get table changes
   private var tableSubscribers = Set.empty[ActorRef]
+
+  // timeout for ask pattern
   implicit val timeout = Timeout(1.seconds)
 
   def receive: Receive = {
-    case NewParticipant(name, subscriber) ⇒
+    case NewParticipant(name, subscriber) =>
       context.watch(subscriber)
       subscribers += (name -> (subscriber, None))
+
     case msg: ReceivedMessage => dispatch(msg.toChatMessage, msg.name)
+
     case ParticipantLeft(person) =>
       val entry = subscribers(person)
       entry._1 ! Status.Success(Unit)
       subscribers -= person
+
     case Terminated(sub) => subscribers = subscribers.filterNot(_._1 == sub)
   }
 
   def dispatch(msg: Protocol.Message, subscriber: String): Unit = {
     val subTuple = subscribers(subscriber)
     val subActor = subTuple._1
+
     val isAdmin: Boolean = subTuple._2 match {
       case Some(user) => {
         if (user.role == Role("admin")) {
@@ -48,9 +58,11 @@ class ChatActor(tablesActor: ActorRef) extends Actor {
       }
       case _ => false
     }
+
     msg match {
       case l: Protocol.Login => {
         try {
+          // If user exists, add him in subscribers to mark subscriber as logined
           val entry @ user = users.find(u => u.username == l.username && u.password == l.password).get
           subscribers(subscriber) = (subActor, Some(user))
           subActor ! Protocol.LoginSuccessful(user_type = user.role.roleType)
@@ -66,6 +78,7 @@ class ChatActor(tablesActor: ActorRef) extends Actor {
         tablesActor ! GetList(subActor)
         tableSubscribers += subActor
       }
+
       case unsub: Protocol.UnSubscribe => {
         if (tableSubscribers.contains(subActor)) {
           tableSubscribers -= subActor
@@ -74,7 +87,9 @@ class ChatActor(tablesActor: ActorRef) extends Actor {
 
       case at: Protocol.AddTable => {
         if (isAdmin) {
+          // ask tableActor to add table
           val created = tablesActor ? Create(at.afterId, at.table)
+          // wait until Future came
           Try(Await.result(created, 10.seconds)) match {
             case Success(tableId: TableId) => {
               tableSubscribers.foreach(_ ! Protocol.TableAdded(at.afterId, TableRoom(tableId.id, at.table.name, at.table.participants)))
@@ -115,6 +130,7 @@ class ChatActor(tablesActor: ActorRef) extends Actor {
           }
         } else subActor ! Protocol.NotAuthorized()
       }
+      // in case we got other Protocol case classes
       case _ =>
     }
   }

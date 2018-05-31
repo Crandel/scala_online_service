@@ -1,4 +1,4 @@
-package test
+package chat
 
 import akka.actor._
 import akka.event.Logging
@@ -12,8 +12,8 @@ trait Chat {
 object Chat {
   def create(system: ActorSystem): Chat = {
     lazy val log = Logging(system, classOf[Chat])
-    val tableActor = system.actorOf(Props[TablesActor])
 
+    val tableActor = system.actorOf(Props[TablesActor])
     val chatActor = system.actorOf(Props(new ChatActor(tableActor)))
 
     def chatInSink(sender: String) = Sink.actorRef[ChatEvent](chatActor, ParticipantLeft(sender))

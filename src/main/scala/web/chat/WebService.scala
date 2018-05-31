@@ -1,4 +1,4 @@
-package test
+package chat
 
 import scala.util.Failure
 import akka.actor._
@@ -50,13 +50,14 @@ class WebService(implicit system: ActorSystem) extends Directives {
       case None => SenderId().toString
     }
 
+    // Create Flow for our web socket messages
     Flow[Message]
       .collect {
-        case TextMessage.Strict(msg) ⇒ msg
+        case TextMessage.Strict(msg) => msg
       }
       .via(theChat.chatFlow(sender))
       .map {
-        case msg: Protocol.Message ⇒
+        case msg: Protocol.Message =>
           TextMessage.Strict(msg.asJson.noSpaces)
       }
       .via(reportErrorsFlow)
