@@ -1,15 +1,17 @@
 import org.scalatest.{ FunSuite, Matchers }
-import chat.WebService
 import akka.http.scaladsl.testkit.{ WSProbe, ScalatestRouteTest }
+import chat.WebService
 
 class ChatTest extends FunSuite with Matchers with ScalatestRouteTest {
-  val webService = new WebService()
-  val wsClient = WSProbe()
 
-  test("connect to webserver") {
+  test("ping webserver") {
+    val webService = new WebService()
+    val wsClient = WSProbe()
+
     WS("/ws_api", wsClient.flow) ~> webService.routes ~>
       check {
-        isWebSocketUpgrade shouldEqual true
+        wsClient.sendMessage("""{"$type":"ping","seq":1}""")
+        wsClient.expectMessage("""{"$type":"pong","seq":1}""")
       }
   }
 }
