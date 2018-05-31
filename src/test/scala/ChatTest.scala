@@ -39,4 +39,13 @@ class ChatTest extends FunSuite with Matchers with ScalatestRouteTest {
     }
   }
 
+  test("add table") {
+    assertSocketConnection() { wsClient =>
+      wsClient.sendMessage("""{"$type": "login","username": "admin","password": "admin"}""")
+      wsClient.expectMessage("""{"$type":"login_successful","user_type":"admin"}""")
+      wsClient.sendMessage("""{"$type": "add_table","after_id": 1,"table": {"name": "table - Foo Fighters","participants": 4}}""")
+      wsClient.sendMessage("""{"$type":"subscribe_tables"}""")
+      wsClient.expectMessage("""{"$type":"table_list","tables":[{"id":0,"name":"table - Foo Fighters","partisipants":4}]}""")
+    }
+  }
 }
