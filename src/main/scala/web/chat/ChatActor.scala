@@ -1,4 +1,4 @@
-package chat
+package web.chat
 
 import akka.actor.{ Actor, ActorRef, Status, Terminated }
 import io.circe.parser._

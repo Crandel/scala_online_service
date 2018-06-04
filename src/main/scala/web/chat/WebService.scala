@@ -1,4 +1,4 @@
-package chat
+package web.chat
 
 import scala.util.Failure
 import akka.actor._
@@ -28,8 +28,6 @@ class WebService(implicit system: ActorSystem) extends Directives {
   lazy val log = Logging(system, classOf[WebService])
 
   val theChat: Chat = Chat.create(system)
-
-  import system.dispatcher
 
   lazy val routes: Route =
     get {

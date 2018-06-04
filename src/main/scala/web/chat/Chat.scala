@@ -1,4 +1,4 @@
-package chat
+package web.chat
 
 import akka.actor._
 import akka.event.Logging
