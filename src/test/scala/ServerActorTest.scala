@@ -1,8 +1,8 @@
 import org.scalatest.{ FunSuite, Matchers }
 import akka.http.scaladsl.testkit.{ WSProbe, ScalatestRouteTest }
-import chat.WebService
+import web.socket.WebService
 
-class ChatTest extends FunSuite with Matchers with ScalatestRouteTest {
+class ServerActorTest extends FunSuite with Matchers with ScalatestRouteTest {
 
   def assertSocketConnection()(assertions: (WSProbe) => Unit) = {
     val webService = new WebService()

@@ -1,4 +1,4 @@
-package web.chat
+package web.socket
 
 import akka.actor.{ Actor, ActorRef, Status, Terminated }
 import io.circe.parser._
@@ -15,7 +15,7 @@ case class User(username: String, password: String, role: Role)
 
 case class Role(roleType: String)
 
-class ChatActor(tablesActor: ActorRef) extends Actor {
+class EventActor(tablesActor: ActorRef) extends Actor {
   private var users = Set(
     User("admin", "admin", Role("admin")),
     User("test", "test", Role("test")))
@@ -34,7 +34,7 @@ class ChatActor(tablesActor: ActorRef) extends Actor {
       context.watch(subscriber)
       subscribers += (name -> (subscriber, None))
 
-    case msg: ReceivedMessage => dispatch(msg.toChatMessage, msg.name)
+    case msg: ReceivedMessage => dispatch(msg.toProtocolMessage, msg.name)
 
     case ParticipantLeft(person) =>
       val entry = subscribers(person)
@@ -136,11 +136,11 @@ class ChatActor(tablesActor: ActorRef) extends Actor {
   }
 }
 
-sealed trait ChatEvent
-case class NewParticipant(name: String, subscriber: ActorRef) extends ChatEvent
-case class ParticipantLeft(name: String) extends ChatEvent
-case class ReceivedMessage(name: String, message: String) extends ChatEvent {
-  def toChatMessage: Protocol.Message = {
+sealed trait InputEvent
+case class NewParticipant(name: String, subscriber: ActorRef) extends InputEvent
+case class ParticipantLeft(name: String) extends InputEvent
+case class ReceivedMessage(name: String, message: String) extends InputEvent {
+  def toProtocolMessage: Protocol.Message = {
     decode[Protocol.Message](message) match {
       case Right(msg) => msg
     }

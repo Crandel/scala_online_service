@@ -1,6 +1,7 @@
-package web.chat
+package web.socket
 
 import scala.util.Failure
+
 import akka.actor._
 import akka.event.Logging
 import akka.http.scaladsl.model.ws.{ Message, TextMessage }
@@ -13,13 +14,12 @@ class SenderId private (val underlying: Int) extends AnyVal {
 }
 
 object SenderId {
-  private var counter: Int = 0
   private var current_id: Int = 0
 
   def apply(): SenderId = {
-    current_id = counter
-    counter += 1
-    new SenderId(current_id)
+    val id = new SenderId(current_id)
+    current_id += 1
+    id
   }
 }
 
@@ -27,7 +27,7 @@ class WebService(implicit system: ActorSystem) extends Directives {
 
   lazy val log = Logging(system, classOf[WebService])
 
-  val theChat: Chat = Chat.create(system)
+  val theServer: ServerActor = ServerActor.create(system)
 
   lazy val routes: Route =
     get {
@@ -36,13 +36,13 @@ class WebService(implicit system: ActorSystem) extends Directives {
       } ~
         path("ws_api") {
           parameter("name".?) { name =>
-            handleWebSocketMessages(webSocketChatFlow(name))
+            handleWebSocketMessages(webSocketServerFlow(name))
           }
         } ~
         getFromResourceDirectory("web")
     }
 
-  def webSocketChatFlow(name: Option[String]): Flow[Message, Message, Any] = {
+  def webSocketServerFlow(name: Option[String]): Flow[Message, Message, Any] = {
     val sender = name match {
       case Some(n) => n
       case None => SenderId().toString
@@ -53,7 +53,7 @@ class WebService(implicit system: ActorSystem) extends Directives {
       .collect {
         case TextMessage.Strict(msg) => msg
       }
-      .via(theChat.chatFlow(sender))
+      .via(theServer.mainFlow(sender))
       .map {
         case msg: Protocol.Message =>
           TextMessage.Strict(msg.asJson.noSpaces)
@@ -61,11 +61,12 @@ class WebService(implicit system: ActorSystem) extends Directives {
       .via(reportErrorsFlow)
   }
 
-  def reportErrorsFlow[T]: Flow[T, T, Any] =
+  def reportErrorsFlow[T]: Flow[T, T, Any] = {
     Flow[T]
       .watchTermination()((_, f) => f.onComplete {
         case Failure(cause) =>
           log.error(s"WS stream failed with $cause")
         case _ =>
       })
+  }
 }

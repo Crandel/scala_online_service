@@ -1,4 +1,4 @@
-package web.chat
+package web.socket
 
 import scala.collection.mutable.ArrayBuffer
 import akka.actor.{ Actor, ActorRef }

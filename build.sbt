@@ -5,8 +5,8 @@ lazy val circeVersion = "0.9.3"
 lazy val root = (project in file(".")).
   settings(
     inThisBuild(List(
-      organization    := "web.chat",
-      scalaVersion    := "2.12.5"
+      organization    := "web.socket",
+      scalaVersion    := "2.12.4"
     )),
     name := "Test Akka Websocket",
     libraryDependencies ++= Seq(

@@ -1,4 +1,4 @@
-package web.chat
+package web.socket
 import io.circe.{ Decoder, Encoder, HCursor, Json }
 
 object Protocol {
