@@ -1,6 +1,7 @@
 package web.socket
 
 import scala.util.Failure
+import scala.concurrent.ExecutionContext.Implicits.global
 
 import akka.actor._
 import akka.event.Logging
